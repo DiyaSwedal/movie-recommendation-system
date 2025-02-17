@@ -1,0 +1,61 @@
+import pandas as pd
+import streamlit as st
+import pickle
+import requests
+
+
+# Function to fetch poster from TMDb API
+def fetch_poster(movie_id):
+    API_KEY = "0f48125c501e5d771383151387e36573"  # Replace with your API key
+    url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={API_KEY}"
+
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        data = response.json()
+        if "poster_path" in data and data["poster_path"]:
+            return f"https://image.tmdb.org/t/p/w500{data['poster_path']}"
+        else:
+            return "https://via.placeholder.com/185x278.png?text=No+Image"
+    else:
+        st.error(f"Error {response.status_code}: Unable to fetch movie data")
+        return "https://via.placeholder.com/185x278.png?text=No+Image"
+
+
+# Function to recommend movies
+def recommend(movie):
+    index = movies[movies['title'] == movie].index[0]
+    distances = sorted(list(enumerate(similarity[index])), reverse=True, key=lambda x: x[1])
+
+    recommended_movies = []
+    recommended_posters = []
+
+    for i in distances[1:6]:
+        movie_id = movies.iloc[i[0]].movie_id
+        recommended_movies.append(movies.iloc[i[0]].title)
+        recommended_posters.append(fetch_poster(movie_id))  # Fetch posters
+
+    return recommended_movies, recommended_posters  # Return both names and posters
+
+
+# Load movie data
+movies_dict = pickle.load(open('movie_dict.pkl', 'rb'))
+movies = pd.DataFrame(movies_dict)
+
+similarity = pickle.load(open('similarity.pkl', 'rb'))
+
+# Streamlit UI
+st.title('Movie Recommender System 🎬')
+
+selected_movie_name = st.selectbox(
+    "Select a movie to get recommendations:", movies['title'].values)
+
+if st.button('Recommend'):
+    names, posters = recommend(selected_movie_name)
+
+    # Use st.columns() instead of deprecated st.beta_columns()
+    cols = st.columns(5)
+    for i in range(5):
+        with cols[i]:
+            st.text(names[i])
+            st.image(posters[i])
